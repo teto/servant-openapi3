@@ -1,0 +1,6 @@
+source-repository-package
+  type: git
+  location: https://github.com/haskell-servant/servant
+  tag: c388c5e82c3df5d8ae63b523fea012c23e37410a
+  subdir: servant
+  --sha256:sha256-x3DqqNhevWHV13yRRcjIiBguCGst5olb7tQzPyshduE=
