@@ -23,6 +23,7 @@ import           Data.Text                     (Text)
 import           Data.Time
 import           GHC.Generics
 import           Servant.API
+import           Servant.API.Generic
 import           Servant.OpenApi
 import           Servant.Test.ComprehensiveAPI (comprehensiveAPI)
 import           Test.Hspec                    hiding (example)
@@ -144,9 +145,10 @@ type HackageAPI
  :<|> HackagePackagesAPI
 
 type GetUsersAPI = "users" :> Get '[JSON] [UserSummary]
+type GetUserDetailedAPI = "user"  :> Capture "username" Username :> Get '[JSON] UserDetailed
 type HackageUserAPI =
       GetUsersAPI
- :<|> "user"  :> Capture "username" Username :> Get '[JSON] UserDetailed
+ :<|> GetUserDetailedAPI
 
 type HackagePackagesAPI
     = "packages" :> Get '[JSON] [Package]
@@ -534,17 +536,21 @@ uverbAPI = [aesonQQ|
 -- =======================================================================
 
 #if MIN_VERSION_servant(0,18,1)
--- data HackageUserAPIGeneric mode = HackageUserAPIGeneric {
---     hguGetUsers :: GetUsersAPI
---     hguGetUserDetailed :: 
---   }
-data HackageAPIGeneric mode = HackageAPIGeneric {
-      hgUserApi :: mode :- NamedRoutes HackageUserAPI
-    , hgPackagesApi :: mode :- HackageUserAPI
-    }
+data HackageUserAPIRecord mode = HackageUserAPIRecord {
+      hguGetUsers :: GetUsersAPI
+    , hguGetUserDetailed :: GetUserDetailedAPI
+  } deriving Generic
 
-hackageOpenApiWithTags :: OpenApi
-hackageOpenApiWithTags = toOpenApi (Proxy :: Proxy HackageAPIGeneric)
+data HackageAPIRecord mode = HackageAPIRecord {
+      hgUserApi :: mode :- NamedRoutes HackageUserAPIRecord
+    , hgPackagesApi :: mode :- NamedRoutes HackageUserAPIRecord
+    } deriving Generic
+
+hackageGenericApi :: Proxy (ToServantApi HackageAPIRecord)
+hackageGenericApi = genericApi (Proxy :: Proxy HackageAPIRecord)
+
+hackageGenericOpenApiWithTags :: OpenApi
+hackageGenericOpenApiWithTags = toOpenApi hackageGenericApi
   -- & servers .~ ["https://hackage.haskell.org"]
   -- & applyTagsFor usersOps    ["users"    & description ?~ "Operations about user"]
   -- & applyTagsFor packagesOps ["packages" & description ?~ "Query packages"]
@@ -553,171 +559,171 @@ hackageOpenApiWithTags = toOpenApi (Proxy :: Proxy HackageAPIGeneric)
   --   usersOps    = subOperations (Proxy :: Proxy HackageUserAPI)     (Proxy :: Proxy HackageAPI)
   --   packagesOps = subOperations (Proxy :: Proxy HackagePackagesAPI) (Proxy :: Proxy HackageAPI)
 
-hackageAPI :: Value
-hackageAPI = [aesonQQ|
-{
-  "openapi": "3.0.0",
-  "servers": [
-    {
-      "url": "https://hackage.haskell.org"
-    }
-  ],
-  "components": {
-    "schemas": {
-      "UserDetailed": {
-        "required": [
-          "username",
-          "userid",
-          "groups"
-        ],
-        "type": "object",
-        "properties": {
-          "groups": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "username": {
-            "type": "string"
-          },
-          "userid": {
-            "maximum": 9223372036854775807,
-            "format": "int64",
-            "minimum": -9223372036854775808,
-            "type": "integer"
-          }
-        }
-      },
-      "Package": {
-        "required": [
-          "packageName"
-        ],
-        "type": "object",
-        "properties": {
-          "packageName": {
-            "type": "string"
-          }
-        }
-      },
-      "UserSummary": {
-        "example": {
-          "username": "JohnDoe",
-          "userid": 123
-        },
-        "required": [
-          "username",
-          "userid"
-        ],
-        "type": "object",
-        "properties": {
-          "username": {
-            "type": "string"
-          },
-          "userid": {
-            "maximum": 9223372036854775807,
-            "format": "int64",
-            "minimum": -9223372036854775808,
-            "type": "integer"
-          }
-        }
-      }
-    }
-  },
-  "info": {
-    "version": "",
-    "title": ""
-  },
-  "paths": {
-    "/users": {
-      "get": {
-        "responses": {
-          "200": {
-            "content": {
-              "application/json;charset=utf-8": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/UserSummary"
-                  },
-                  "type": "array"
-                }
-              }
-            },
-            "description": ""
-          }
-        },
-        "tags": [
-          "users"
-        ]
-      }
-    },
-    "/packages": {
-      "get": {
-        "responses": {
-          "200": {
-            "content": {
-              "application/json;charset=utf-8": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/Package"
-                  },
-                  "type": "array"
-                }
-              }
-            },
-            "description": ""
-          }
-        },
-        "tags": [
-          "packages"
-        ]
-      }
-    },
-    "/user/{username}": {
-      "get": {
-        "responses": {
-          "404": {
-            "description": "`username` not found"
-          },
-          "200": {
-            "content": {
-              "application/json;charset=utf-8": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserDetailed"
-                }
-              }
-            },
-            "description": ""
-          }
-        },
-        "parameters": [
-          {
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "username"
-          }
-        ],
-        "tags": [
-          "users"
-        ]
-      }
-    }
-  },
-  "tags": [
-    {
-      "name": "users",
-      "description": "Operations about user"
-    },
-    {
-      "name": "packages",
-      "description": "Query packages"
-    }
-  ]
-}
-|]
+-- hackageAPI :: Value
+-- hackageAPI = [aesonQQ|
+-- {
+--   "openapi": "3.0.0",
+--   "servers": [
+--     {
+--       "url": "https://hackage.haskell.org"
+--     }
+--   ],
+--   "components": {
+--     "schemas": {
+--       "UserDetailed": {
+--         "required": [
+--           "username",
+--           "userid",
+--           "groups"
+--         ],
+--         "type": "object",
+--         "properties": {
+--           "groups": {
+--             "items": {
+--               "type": "string"
+--             },
+--             "type": "array"
+--           },
+--           "username": {
+--             "type": "string"
+--           },
+--           "userid": {
+--             "maximum": 9223372036854775807,
+--             "format": "int64",
+--             "minimum": -9223372036854775808,
+--             "type": "integer"
+--           }
+--         }
+--       },
+--       "Package": {
+--         "required": [
+--           "packageName"
+--         ],
+--         "type": "object",
+--         "properties": {
+--           "packageName": {
+--             "type": "string"
+--           }
+--         }
+--       },
+--       "UserSummary": {
+--         "example": {
+--           "username": "JohnDoe",
+--           "userid": 123
+--         },
+--         "required": [
+--           "username",
+--           "userid"
+--         ],
+--         "type": "object",
+--         "properties": {
+--           "username": {
+--             "type": "string"
+--           },
+--           "userid": {
+--             "maximum": 9223372036854775807,
+--             "format": "int64",
+--             "minimum": -9223372036854775808,
+--             "type": "integer"
+--           }
+--         }
+--       }
+--     }
+--   },
+--   "info": {
+--     "version": "",
+--     "title": ""
+--   },
+--   "paths": {
+--     "/users": {
+--       "get": {
+--         "responses": {
+--           "200": {
+--             "content": {
+--               "application/json;charset=utf-8": {
+--                 "schema": {
+--                   "items": {
+--                     "$ref": "#/components/schemas/UserSummary"
+--                   },
+--                   "type": "array"
+--                 }
+--               }
+--             },
+--             "description": ""
+--           }
+--         },
+--         "tags": [
+--           "users"
+--         ]
+--       }
+--     },
+--     "/packages": {
+--       "get": {
+--         "responses": {
+--           "200": {
+--             "content": {
+--               "application/json;charset=utf-8": {
+--                 "schema": {
+--                   "items": {
+--                     "$ref": "#/components/schemas/Package"
+--                   },
+--                   "type": "array"
+--                 }
+--               }
+--             },
+--             "description": ""
+--           }
+--         },
+--         "tags": [
+--           "packages"
+--         ]
+--       }
+--     },
+--     "/user/{username}": {
+--       "get": {
+--         "responses": {
+--           "404": {
+--             "description": "`username` not found"
+--           },
+--           "200": {
+--             "content": {
+--               "application/json;charset=utf-8": {
+--                 "schema": {
+--                   "$ref": "#/components/schemas/UserDetailed"
+--                 }
+--               }
+--             },
+--             "description": ""
+--           }
+--         },
+--         "parameters": [
+--           {
+--             "required": true,
+--             "schema": {
+--               "type": "string"
+--             },
+--             "in": "path",
+--             "name": "username"
+--           }
+--         ],
+--         "tags": [
+--           "users"
+--         ]
+--       }
+--     }
+--   },
+--   "tags": [
+--     {
+--       "name": "users",
+--       "description": "Operations about user"
+--     },
+--     {
+--       "name": "packages",
+--       "description": "Query packages"
+--     }
+--   ]
+-- }
+-- |]
 
 #endif
 

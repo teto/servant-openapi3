@@ -36,8 +36,8 @@ import           Data.Typeable              (Typeable)
 import           GHC.TypeLits
 import           Network.HTTP.Media         (MediaType)
 import           Servant.API
-import           Servant.API.NamedRoutes
-import           Servant.API.Generic
+-- import           Servant.API.NamedRoutes
+-- import           Servant.API.Generic
 import           Servant.API.Description    (FoldDescription, reflectDescription)
 import           Servant.API.Modifiers      (FoldRequired)
 
@@ -85,8 +85,14 @@ instance HasOpenApi Raw where
 instance HasOpenApi EmptyAPI where
   toOpenApi _ = mempty
 
+-- GenericMode (NamedRoutes api)
+-- (GenericMode (NamedRoutes api))
+-- instance HasOpenApi (NamedRoutes routes) where
+--   -- TODO adjust
+--   toOpenApi papi = toOpenApi (routes (AsApi) )
 
-instance ((GenericMode (NamedRoutes api)), HasOpenApi api) => HasOpenApi (NamedRoutes api) where
+-- GenericMode (NamedRoutes api)
+instance HasOpenApi (NamedRoutes api) where
   -- TODO adjust
   toOpenApi papi = toOpenApi (papi)
 
