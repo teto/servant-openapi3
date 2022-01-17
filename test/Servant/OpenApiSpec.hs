@@ -143,8 +143,9 @@ type HackageAPI
     = HackageUserAPI
  :<|> HackagePackagesAPI
 
+type GetUsersAPI = "users" :> Get '[JSON] [UserSummary]
 type HackageUserAPI =
-      "users" :> Get '[JSON] [UserSummary]
+      GetUsersAPI
  :<|> "user"  :> Capture "username" Username :> Get '[JSON] UserDetailed
 
 type HackagePackagesAPI
@@ -527,3 +528,196 @@ uverbAPI = [aesonQQ|
 |]
 
 #endif
+
+-- =======================================================================
+-- Generic Record API
+-- =======================================================================
+
+#if MIN_VERSION_servant(0,18,1)
+-- data HackageUserAPIGeneric mode = HackageUserAPIGeneric {
+--     hguGetUsers :: GetUsersAPI
+--     hguGetUserDetailed :: 
+--   }
+data HackageAPIGeneric mode = HackageAPIGeneric {
+      hgUserApi :: mode :- NamedRoutes HackageUserAPI
+    , hgPackagesApi :: mode :- HackageUserAPI
+    }
+
+hackageOpenApiWithTags :: OpenApi
+hackageOpenApiWithTags = toOpenApi (Proxy :: Proxy HackageAPIGeneric)
+  -- & servers .~ ["https://hackage.haskell.org"]
+  -- & applyTagsFor usersOps    ["users"    & description ?~ "Operations about user"]
+  -- & applyTagsFor packagesOps ["packages" & description ?~ "Query packages"]
+  -- where
+  --   usersOps, packagesOps :: Traversal' OpenApi Operation
+  --   usersOps    = subOperations (Proxy :: Proxy HackageUserAPI)     (Proxy :: Proxy HackageAPI)
+  --   packagesOps = subOperations (Proxy :: Proxy HackagePackagesAPI) (Proxy :: Proxy HackageAPI)
+
+hackageAPI :: Value
+hackageAPI = [aesonQQ|
+{
+  "openapi": "3.0.0",
+  "servers": [
+    {
+      "url": "https://hackage.haskell.org"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "UserDetailed": {
+        "required": [
+          "username",
+          "userid",
+          "groups"
+        ],
+        "type": "object",
+        "properties": {
+          "groups": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "username": {
+            "type": "string"
+          },
+          "userid": {
+            "maximum": 9223372036854775807,
+            "format": "int64",
+            "minimum": -9223372036854775808,
+            "type": "integer"
+          }
+        }
+      },
+      "Package": {
+        "required": [
+          "packageName"
+        ],
+        "type": "object",
+        "properties": {
+          "packageName": {
+            "type": "string"
+          }
+        }
+      },
+      "UserSummary": {
+        "example": {
+          "username": "JohnDoe",
+          "userid": 123
+        },
+        "required": [
+          "username",
+          "userid"
+        ],
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "userid": {
+            "maximum": 9223372036854775807,
+            "format": "int64",
+            "minimum": -9223372036854775808,
+            "type": "integer"
+          }
+        }
+      }
+    }
+  },
+  "info": {
+    "version": "",
+    "title": ""
+  },
+  "paths": {
+    "/users": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json;charset=utf-8": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserSummary"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/packages": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json;charset=utf-8": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Package"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "packages"
+        ]
+      }
+    },
+    "/user/{username}": {
+      "get": {
+        "responses": {
+          "404": {
+            "description": "`username` not found"
+          },
+          "200": {
+            "content": {
+              "application/json;charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDetailed"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "parameters": [
+          {
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "username"
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "users",
+      "description": "Operations about user"
+    },
+    {
+      "name": "packages",
+      "description": "Query packages"
+    }
+  ]
+}
+|]
+
+#endif
+

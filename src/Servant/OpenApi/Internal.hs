@@ -86,9 +86,9 @@ instance HasOpenApi EmptyAPI where
   toOpenApi _ = mempty
 
 
-instance HasOpenApi api => HasOpenApi (NamedRoutes api) where
+instance ((GenericMode (NamedRoutes api)), HasOpenApi api) => HasOpenApi (NamedRoutes api) where
   -- TODO adjust
-  toOpenApi _ = mempty
+  toOpenApi papi = toOpenApi (papi)
 
 -- | All operations of sub API.
 -- This is similar to @'operationsOf'@ but ensures that operations
